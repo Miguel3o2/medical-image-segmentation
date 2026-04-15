@@ -1,0 +1,49 @@
+# Model checkpoints (too large for GitHub)
+checkpoints/
+*.pt
+*.pth
+
+# Raw datasets (too large for GitHub)
+Task03_Liver/
+Task04_Hippocampus/
+slices/
+*.nii.gz
+*.nii
+
+# Numpy arrays
+*.npy
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Environments
+.env
+venv/
+env/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+runs/
+wandb/
+
+# Keep assets folder tracked
+!assets/
+!assets/*.png
+!assets/*.txt

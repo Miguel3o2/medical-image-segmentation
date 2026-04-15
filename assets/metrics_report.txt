@@ -1,0 +1,6 @@
+U-Net Liver Segmentation — Evaluation Results
+=============================================
+dice        : 0.4673
+iou         : 0.3048
+precision   : 0.3048
+recall      : 1.0000
