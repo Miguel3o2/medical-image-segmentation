@@ -156,6 +156,17 @@ medical-image-segmentation/
 
 **Why concatenate skips (not add)?** Concatenation preserves both the encoder's spatial precision and the decoder's semantic context as separate channels — the subsequent ConvBlock learns how to mix them. Addition blends them irrecoverably, losing fine boundary information.
 
+## UPDATE
+
+Task03 was skipped due to the massive size. Instead, use this model.
+
+```powershell
+# Download Medical Segmentation Decathlon Task04
+gdown 1RzPB1_bqzQhlWvU-YGvZzhx2omcDh38C
+
+# Extract
+tar -xf Task04_Liver.tar
+```
 ---
 
 ## References
