@@ -103,6 +103,7 @@ def get_dataloaders(root_dir, batch_size=16, val_fraction=0.15,
 
     generator = torch.Generator().manual_seed(seed)
     train_ds, val_ds = random_split(full_ds, [n_train, n_val], generator=generator)
+    drop_last = len(train_ds) >= batch_size
 
     # Enable augmentation on training split
     train_ds.dataset.augment = False  # will set per-sample in wrapper below
@@ -113,7 +114,7 @@ def get_dataloaders(root_dir, batch_size=16, val_fraction=0.15,
 
     train_dl = DataLoader(
         train_aug_ds, batch_size=batch_size, shuffle=True,
-        num_workers=num_workers, pin_memory=True, drop_last=True
+        num_workers=num_workers, pin_memory=True, drop_last=drop_last
     )
     val_dl = DataLoader(
         val_aug_ds, batch_size=batch_size, shuffle=False,
@@ -122,6 +123,8 @@ def get_dataloaders(root_dir, batch_size=16, val_fraction=0.15,
 
     print(f"Train: {len(train_aug_ds)} slices | Val: {len(val_aug_ds)} slices")
     print(f"Batch size: {batch_size} | Train batches: {len(train_dl)} | Val batches: {len(val_dl)}")
+    if not drop_last and len(train_ds) < batch_size:
+        print(f"Using incomplete final training batch because train set has only {len(train_ds)} slices.")
     return train_dl, val_dl
 
 

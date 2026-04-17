@@ -7,8 +7,10 @@ checkpoints/
 Task03_Liver/
 Task04_Hippocampus/
 slices/
+slices_task04/
 *.nii.gz
 *.nii
+._*
 
 # Numpy arrays
 *.npy

@@ -28,6 +28,11 @@ def train_epoch(model, loader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
 
+    if len(loader) == 0:
+        raise ValueError(
+            "Training DataLoader is empty. Reduce --batch_size or regenerate slices with more data."
+        )
+
     loop = tqdm(loader, desc='  Train', leave=False)
     for imgs, masks in loop:
         imgs  = imgs.to(device,  non_blocking=True)

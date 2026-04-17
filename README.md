@@ -1,175 +1,164 @@
-# Medical Image Segmentation — U-Net (PyTorch)
+# Medical Image Segmentation - U-Net (PyTorch)
 
-Liver segmentation on CT scans using a **U-Net trained from scratch** in PyTorch.  
-Trained on the [Medical Segmentation Decathlon](http://medicaldecathlon.com/) Task03 dataset.
+Medical image segmentation using a U-Net trained from scratch in PyTorch.
 
-> **CV project** — built as part of a focused ML study plan targeting medical imaging roles.
-
----
+This project started as a liver CT segmentation pipeline for Medical Segmentation Decathlon Task03 and was later extended to support Task04 Hippocampus MRI with dataset-aware preprocessing. The latest run reached a best validation Dice of about `0.90` on Task04.
 
 ## Results
 
-| Metric    | Score  |
-|-----------|--------|
-| Dice      | —      |
-| IoU       | —      |
-| Precision | —      |
-| Recall    | —      |
-
-> Fill in your scores after running `python evaluate.py`
+| Metric | Score |
+|--------|-------|
+| Best validation Dice | 0.9027 |
+| IoU | Run `python evaluate.py` to refresh |
+| Precision | Run `python evaluate.py` to refresh |
+| Recall | Run `python evaluate.py` to refresh |
 
 ### Predictions
 
 ![Predictions](assets/predictions.png)
 
-### Training curves
+### Training Curves
 
 ![Training curves](assets/training_curves.png)
 
----
-
 ## Architecture
 
-**U-Net** with 4 encoder levels and symmetric decoder:
+U-Net with 4 encoder levels and a symmetric decoder:
 
+```text
+Input (1x256x256)
+  -> Encoder: 64 -> 128 -> 256 -> 512 channels
+  -> Bottleneck: 1024 channels
+  -> Decoder: 512 -> 256 -> 128 -> 64 channels
+  -> Output (1x256x256) binary segmentation mask
 ```
-Input (1×256×256)
-  → Encoder: 64 → 128 → 256 → 512 channels  (MaxPool2d between levels)
-  → Bottleneck: 1024 channels
-  → Decoder:  512 → 256 → 128 → 64 channels  (ConvTranspose2d + skip concat)
-  → Output (1×256×256)  binary segmentation mask
-```
 
-- **Skip connections** — concatenate encoder feature maps to decoder (not add)
-- **ConvBlock** — two Conv2d + BatchNorm2d + ReLU layers per level
-- **DiceBCE loss** — combines Dice loss (handles class imbalance) with BCE (stable gradients)
-- **~31M parameters**, trained on 2D axial CT slices extracted from 3D volumes
+- Skip connections use concatenation to preserve spatial detail.
+- Dice+BCE loss balances overlap quality with stable optimisation.
+- The model has about 31M parameters.
 
----
+## Supported Datasets
 
-## Dataset
+### Task03 Liver
 
-**Medical Segmentation Decathlon — Task03 Liver**  
-- 131 CT volumes with expert liver + tumour segmentation masks  
-- Soft tissue windowing (WC=−75, WW=400 HU)  
-- ~5,000 2D axial slices extracted at 256×256  
-- 85% train / 15% validation split
+- CT volumes with liver and tumour masks
+- CT-style windowing and slice extraction
+- Good fit when you have more disk space available
 
----
+### Task04 Hippocampus
+
+- MRI volumes with hippocampus labels
+- MRI-aware normalisation for non-CT intensity distributions
+- Small-structure-friendly slice filtering with neighboring context slices
+- Better option for smaller local storage budgets
+
+## Key Engineering Improvements
+
+- Dataset-aware preprocessing based on `dataset.json`
+- MRI normalisation path added for Task04
+- Foreground thresholding now works through `--min_pixels`
+- Context slices are retained around positive hippocampus slices
+- Training no longer silently drops the only batch when the train split is small
+- Clearer error message when a training loader is empty
 
 ## Setup
 
 ### Requirements
+
 - Python 3.9+
-- CUDA GPU recommended (CPU works but slow)
-- ~10GB disk space for dataset
+- CUDA GPU recommended
+- Enough disk space for your chosen dataset
 
 ### Install
 
 ```powershell
-# Clone the repo
 git clone https://github.com/YOUR_USERNAME/medical-image-segmentation.git
 cd medical-image-segmentation
 
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate        # Windows PowerShell
-# source venv/bin/activate   # Linux/Mac
-
-# Install dependencies
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Download dataset
-
-```powershell
-# Download Medical Segmentation Decathlon Task03 (~8 GB)
-gdown --id 1jyVGUGyxKBXV6_9ivuZapQS8eUJXCIpu
-
-# Extract
-tar -xf Task03_Liver.tar
-```
-
----
-
 ## Usage
 
-### Step 1 — Preprocess (run once)
+### 1. Preprocess
 
 ```powershell
+# Task03 Liver
 python data/preprocess.py --data_dir Task03_Liver --out_dir slices
+
+# Task04 Hippocampus
+python data/preprocess.py --data_dir Task04_Hippocampus --out_dir slices_task04
 ```
 
-Extracts ~5,000 2D axial slices with liver content → saves as `.npy` files.
-
-### Step 2 — Sanity check
+Optional Task04 tuning:
 
 ```powershell
-python evaluate.py --sanity_check
+python data/preprocess.py --data_dir Task04_Hippocampus --out_dir slices_task04 --size 256 --min_pixels 10 --context_slices 2
 ```
 
-Opens `assets/sanity_check.png` — verify CT slices and masks are aligned.
-
-### Step 3 — Train
+### 2. Sanity Check
 
 ```powershell
-python train.py --epochs 30 --batch_size 16 --lr 1e-4
-
-# Low VRAM (8GB or less):
-python train.py --epochs 30 --batch_size 8 --num_workers 0
+python evaluate.py --data_dir slices_task04 --sanity_check --batch_size 8 --num_workers 0
 ```
 
-### Step 4 — Evaluate
+### 3. Train
 
 ```powershell
-python evaluate.py --checkpoint checkpoints/unet_best.pt
+# Task03 Liver
+python train.py --data_dir slices --epochs 30 --batch_size 8 --lr 1e-4 --num_workers 0
+
+# Task04 Hippocampus
+python train.py --data_dir slices_task04 --epochs 60 --batch_size 8 --lr 1e-4 --num_workers 0
 ```
 
-Generates `assets/predictions.png` and `assets/training_curves.png`.
+If VRAM is tight, reduce the batch size to `4`.
 
----
+### 4. Evaluate
 
-## Project structure
-
+```powershell
+python evaluate.py --data_dir slices_task04 --checkpoint checkpoints/unet_best.pt --batch_size 8 --num_workers 0
 ```
+
+This writes:
+
+- `assets/predictions.png`
+- `assets/training_curves.png`
+- `assets/metrics_report.txt`
+
+## Project Structure
+
+```text
 medical-image-segmentation/
-├── model/
-│   ├── unet.py        ← UNet, ConvBlock, UpBlock
-│   └── losses.py      ← DiceBCELoss, dice_score, iou_score
-├── data/
-│   ├── preprocess.py  ← NIfTI loading, windowing, slice extraction
-│   └── dataset.py     ← LiverSliceDataset, get_dataloaders
-├── train.py           ← full training loop with checkpointing
-├── evaluate.py        ← metrics, visualisation, sanity check
-├── requirements.txt
-├── assets/            ← saved plots (tracked by git)
-└── checkpoints/       ← saved model weights (gitignored)
+|-- model/
+|   |-- unet.py
+|   `-- losses.py
+|-- data/
+|   |-- preprocess.py
+|   `-- dataset.py
+|-- train.py
+|-- evaluate.py
+|-- assets/
+`-- checkpoints/
 ```
 
----
+## Key Implementation Details
 
-## Key implementation details
+**Why Dice loss?** Medical segmentation is highly imbalanced. Standard BCE can reward background-heavy predictions too easily, while Dice directly optimises overlap quality.
 
-**Why Dice loss?** In liver CT, the organ occupies ~10% of the image. Standard BCE gets 90% accuracy by predicting all background. Dice measures pixel-level overlap, making it robust to class imbalance — critical in medical imaging.
+**Why 2D slices?** A full 3D U-Net is expensive on consumer hardware. Extracting 2D slices keeps training practical while preserving a strong baseline for both CT and MRI workflows.
 
-**Why 2D slices?** A full 3D U-Net on 512×512×300 volumes requires >24GB VRAM. Extracting 2D axial slices lets any GPU train effectively while still learning liver-specific appearance. For production, 2.5D (stacking adjacent slices as channels) or patch-based 3D would be the next step.
+**Why dataset-aware preprocessing?** Liver CT assumptions do not cleanly transfer to hippocampus MRI. Modality-aware normalisation and small-structure slice retention made the pipeline much more robust.
 
-**Why concatenate skips (not add)?** Concatenation preserves both the encoder's spatial precision and the decoder's semantic context as separate channels — the subsequent ConvBlock learns how to mix them. Addition blends them irrecoverably, losing fine boundary information.
+## Why This Project Is Interesting
 
-## UPDATE
-
-Task03 was skipped due to the massive size. Instead, use this model.
-
-```powershell
-# Download Medical Segmentation Decathlon Task04
-gdown 1RzPB1_bqzQhlWvU-YGvZzhx2omcDh38C
-
-# Extract
-tar -xf Task04_Liver.tar
-```
----
+- It turns 3D NIfTI medical volumes into a practical 2D training pipeline for consumer GPUs.
+- It highlights how preprocessing assumptions can fail across modalities.
+- It shows end-to-end ML engineering: preprocessing, training, evaluation, debugging, and presentation.
 
 ## References
 
-- [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597) — Ronneberger et al., 2015
-- [Medical Segmentation Decathlon](http://medicaldecathlon.com/) — Simpson et al., 2019
+- [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597)
+- [Medical Segmentation Decathlon](http://medicaldecathlon.com/)
