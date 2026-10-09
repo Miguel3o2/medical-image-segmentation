@@ -1,17 +1,3 @@
-"""
-Evaluation and visualisation for the trained U-Net.
-
-Usage:
-    python evaluate.py                                      # uses checkpoints/unet_best.pt
-    python evaluate.py --checkpoint checkpoints/unet_best.pt
-    python evaluate.py --visualise_only                     # skip metrics, just plot
-
-Outputs:
-    assets/predictions.png       ← CT + ground truth + prediction overlays
-    assets/training_curves.png   ← loss and Dice curves over epochs
-    assets/metrics_report.txt    ← full metrics summary
-"""
-
 import os
 import argparse
 import numpy as np
@@ -24,11 +10,9 @@ from model import UNet, dice_score, iou_score
 from data  import get_dataloaders
 
 
-# ── Metrics ────────────────────────────────────────────────────────────────────
-
 @torch.no_grad()
 def evaluate(model, val_dl, device):
-    """Compute Dice, IoU, Precision, Recall on the validation set."""
+
     model.eval()
     metrics = {'dice': [], 'iou': [], 'precision': [], 'recall': []}
 
@@ -61,11 +45,9 @@ def evaluate(model, val_dl, device):
     return results
 
 
-# ── Prediction visualisation ───────────────────────────────────────────────────
-
 @torch.no_grad()
 def visualise_predictions(model, val_dl, device, n=4, save_path='assets/predictions.png'):
-    """Plot n CT slices with ground truth and predicted overlays side-by-side."""
+
     model.eval()
     imgs, masks = next(iter(val_dl))
 
@@ -75,7 +57,7 @@ def visualise_predictions(model, val_dl, device, n=4, save_path='assets/predicti
     n = min(n, imgs.shape[0])
     fig, axes = plt.subplots(n, 3, figsize=(13, n * 4.2))
 
-# Ensure axes is always 2D
+
     if n == 1:
       axes = np.expand_dims(axes, axis=0)
     fig.suptitle('U-Net Liver Segmentation — Validation Predictions', fontsize=14, y=1.01)
@@ -85,20 +67,20 @@ def visualise_predictions(model, val_dl, device, n=4, save_path='assets/predicti
         gt_np   = masks[i, 0].numpy()
         pred_np = preds[i, 0].numpy()
 
-        # Per-slice Dice
+
         inter   = (pred_np * gt_np).sum()
         d       = (2 * inter + 1e-6) / (pred_np.sum() + gt_np.sum() + 1e-6)
 
-        # CT slice
+
         axes[i, 0].imshow(img_np, cmap='gray', vmin=0, vmax=1)
         axes[i, 0].set_title(f'CT slice {i+1}', fontsize=11)
 
-        # Ground truth
+
         axes[i, 1].imshow(img_np, cmap='gray', vmin=0, vmax=1)
         axes[i, 1].imshow(gt_np,  cmap='Greens', alpha=0.5, vmin=0, vmax=1)
         axes[i, 1].set_title('Ground truth', fontsize=11)
 
-        # Prediction overlay
+
         axes[i, 2].imshow(img_np,   cmap='gray', vmin=0, vmax=1)
         axes[i, 2].imshow(pred_np,  cmap='Reds',  alpha=0.5, vmin=0, vmax=1)
         axes[i, 2].set_title(f'Prediction  (Dice = {d:.3f})', fontsize=11)
@@ -106,7 +88,7 @@ def visualise_predictions(model, val_dl, device, n=4, save_path='assets/predicti
     for ax in axes.flat:
         ax.axis('off')
 
-    # Legend
+
     gt_patch   = mpatches.Patch(color='green', alpha=0.5, label='Ground truth')
     pred_patch = mpatches.Patch(color='red',   alpha=0.5, label='Prediction')
     fig.legend(handles=[gt_patch, pred_patch], loc='lower center',
@@ -119,11 +101,9 @@ def visualise_predictions(model, val_dl, device, n=4, save_path='assets/predicti
     print(f"Saved: {save_path}")
 
 
-# ── Training curves ────────────────────────────────────────────────────────────
-
 def plot_training_curves(history_path='training_history.npy',
                          save_path='assets/training_curves.png'):
-    """Plot training loss and validation Dice over epochs."""
+
     if not os.path.exists(history_path):
         print(f"History file not found: {history_path}")
         return
@@ -134,13 +114,13 @@ def plot_training_curves(history_path='training_history.npy',
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
     fig.suptitle('U-Net Training History', fontsize=14)
 
-    # Loss curve
+
     ax1.plot(epochs, history['train_loss'], color='#185FA5', linewidth=2, label='Train loss')
     ax1.set_xlabel('Epoch'); ax1.set_ylabel('Loss')
     ax1.set_title('Training loss (DiceBCE)')
     ax1.grid(alpha=0.3); ax1.legend()
 
-    # Dice curve
+
     ax2.plot(epochs, history['val_dice'], color='#1D9E75', linewidth=2, label='Val Dice')
     ax2.axhline(0.85, color='gray', linestyle='--', alpha=0.6, label='Publication threshold (0.85)')
     ax2.axhline(0.90, color='#854F0B', linestyle=':', alpha=0.6, label='Excellent threshold (0.90)')
@@ -155,11 +135,9 @@ def plot_training_curves(history_path='training_history.npy',
     print(f"Saved: {save_path}")
 
 
-# ── Sanity check ───────────────────────────────────────────────────────────────
-
 @torch.no_grad()
 def sanity_check(val_dl):
-    """Visualise raw data — always run this before evaluating a new model."""
+
     imgs, masks = next(iter(val_dl))
     print(f"\nSanity check:")
     print(f"  Image shape:  {imgs.shape}")
@@ -183,8 +161,6 @@ def sanity_check(val_dl):
     print("  Saved: assets/sanity_check.png")
 
 
-# ── Entry point ────────────────────────────────────────────────────────────────
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate trained U-Net')
     parser.add_argument('--checkpoint',    default='checkpoints/unet_best.pt')
@@ -197,14 +173,14 @@ if __name__ == '__main__':
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # Dataloaders (no augmentation at eval time)
+
     _, val_dl = get_dataloaders(args.data_dir, batch_size=args.batch_size,
                                 num_workers=args.num_workers)
 
     if args.sanity_check:
         sanity_check(val_dl)
     else:
-        # Load model
+
         print(f"\nLoading checkpoint: {args.checkpoint}")
         model  = UNet(in_ch=1, out_ch=1).to(device)
         ckpt   = torch.load(args.checkpoint, map_location=device)
@@ -212,10 +188,10 @@ if __name__ == '__main__':
         print(f"Checkpoint from epoch {ckpt.get('epoch', '?')} | "
               f"val Dice {ckpt.get('val_dice', 0):.4f}")
 
-        # Metrics
+
         results = evaluate(model, val_dl, device)
 
-        # Save metrics report
+
         os.makedirs('assets', exist_ok=True)
         with open('assets/metrics_report.txt', 'w') as f:
             f.write("U-Net Liver Segmentation — Evaluation Results\n")
@@ -224,8 +200,8 @@ if __name__ == '__main__':
                 f.write(f"{k:<12}: {v:.4f}\n")
         print("Saved: assets/metrics_report.txt")
 
-        # Visualise predictions
+
         visualise_predictions(model, val_dl, device, n=args.n_vis)
 
-        # Training curves
+
         plot_training_curves()

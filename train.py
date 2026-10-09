@@ -1,17 +1,3 @@
-"""
-Main training script for U-Net liver segmentation.
-
-Usage:
-    python train.py                          # default settings
-    python train.py --epochs 50 --lr 1e-4   # custom settings
-    python train.py --data_dir slices --batch_size 8  # low VRAM
-
-Outputs:
-    checkpoints/unet_best.pt    ← best model by validation Dice
-    checkpoints/unet_last.pt    ← final epoch checkpoint
-    training_history.npy        ← loss/dice curves for plotting
-"""
-
 import os
 import argparse
 import numpy as np
@@ -21,8 +7,6 @@ from tqdm import tqdm
 from model import UNet, DiceBCELoss, dice_score
 from data  import get_dataloaders
 
-
-# ── Training one epoch ─────────────────────────────────────────────────────────
 
 def train_epoch(model, loader, criterion, optimizer, device):
     model.train()
@@ -43,20 +27,18 @@ def train_epoch(model, loader, criterion, optimizer, device):
         loss   = criterion(logits, masks)
         loss.backward()
 
-        # Gradient clipping — prevents exploding gradients in early training
+
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         optimizer.step()
         total_loss += loss.item()
         loop.set_postfix(loss=f'{loss.item():.4f}')
 
-        # Free memory explicitly (important on low-VRAM GPUs)
+
         del imgs, masks, logits, loss
 
     return total_loss / len(loader)
 
-
-# ── Validation one epoch ───────────────────────────────────────────────────────
 
 @torch.no_grad()
 def val_epoch(model, loader, device):
@@ -74,16 +56,14 @@ def val_epoch(model, loader, device):
     return float(np.mean(dice_scores))
 
 
-# ── Main training loop ─────────────────────────────────────────────────────────
-
 def train(args):
-    # Device
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"\nDevice: {device}")
     if device.type == 'cuda':
         print(f"GPU:    {torch.cuda.get_device_name(0)}")
 
-    # Data
+
     print(f"\nLoading dataset from: {args.data_dir}")
     train_dl, val_dl = get_dataloaders(
         args.data_dir,
@@ -91,12 +71,12 @@ def train(args):
         num_workers=args.num_workers,
     )
 
-    # Model
+
     model = UNet(in_ch=1, out_ch=1).to(device)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Model:  U-Net  ({total_params:,} parameters)")
 
-    # Loss, optimiser, scheduler
+
     criterion = DiceBCELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -118,7 +98,7 @@ def train(args):
         history['train_loss'].append(train_loss)
         history['val_dice'].append(val_dice)
 
-        # Save best checkpoint
+
         if val_dice > best_dice:
             best_dice = val_dice
             torch.save({
@@ -141,7 +121,7 @@ def train(args):
               f"lr {lr_now:.2e}"
               f"{saved}")
 
-    # Save last checkpoint + history
+
     torch.save({
         'epoch':       args.epochs,
         'model_state': model.state_dict(),
@@ -156,8 +136,6 @@ def train(args):
     return history
 
 
-# ── Entry point ────────────────────────────────────────────────────────────────
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train U-Net for liver segmentation')
     parser.add_argument('--data_dir',    default='slices',  help='Path to extracted slices directory')
@@ -167,7 +145,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', default=4,   type=int,   help='DataLoader workers (set 0 on Windows if errors)')
     args = parser.parse_args()
 
-    # Print config
+
     print("=" * 50)
     print("U-Net Liver Segmentation — Training")
     print("=" * 50)
