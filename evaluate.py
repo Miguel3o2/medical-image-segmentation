@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from tqdm import tqdm
 
-from model import UNet, dice_score, iou_score
+from model import UNet, segmentation_metrics
 from data  import get_dataloaders
 
 
@@ -19,17 +19,9 @@ def evaluate(model, val_dl, device):
     for imgs, masks in tqdm(val_dl, desc='Evaluating'):
         logits = model(imgs.to(device))
         preds  = (torch.sigmoid(logits) > 0.5).float().cpu()
-
-        p = preds.contiguous().view(-1).numpy()
-        t = masks.contiguous().view(-1).numpy()
-
-        inter = (p * t).sum()
-        union = p.sum() + t.sum() - inter
-
-        metrics['dice'].append(      (2 * inter + 1e-6) / (p.sum() + t.sum() + 1e-6))
-        metrics['iou'].append(       (inter + 1e-6)     / (union + 1e-6))
-        metrics['precision'].append( (inter + 1e-6)     / (p.sum() + 1e-6))
-        metrics['recall'].append(    (inter + 1e-6)     / (t.sum() + 1e-6))
+        batch_metrics = segmentation_metrics(preds, masks)
+        for name, value in batch_metrics.items():
+            metrics[name].append(value.item())
 
     results = {k: float(np.mean(v)) for k, v in metrics.items()}
 
